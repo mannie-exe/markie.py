@@ -265,3 +265,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,vscode,sublimetext,python,venv
+
+data/export_*
+data/messages.txt

@@ -1,28 +1,8 @@
-import json
+from os.path import abspath
 from hashlib import md5
 import numpy as np
 
-SAMPLE_SENTENCES = [
-    "Hello,    my name is Michael.",
-    "Hello, my name is Mannie.",
-    "Hello, my name is multi\nline sentence.",
-    "Hello, my name is dog",
-    "Hello, my name is dog",
-    "Hello, my name is cat",
-    "Hello, my game is zaggit",
-]
-
 ENCODING = "utf-8"
-
-
-def create_word_sequence(text):
-    sentences = []
-    for entry in text:
-        entry = entry.split("\n")
-        for line in entry:
-            sentences += line.split(" ")
-            sentences.append("\n")
-    return sentences
 
 
 def word_to_hash(word):
@@ -31,8 +11,13 @@ def word_to_hash(word):
     return hasher.hexdigest()
 
 
-def create_markov_obj():
-    return {}
+def create_word_sequence(text):
+    sentences = []
+    for sentence in text.split("\n"):
+        for word in sentence.split(" "):
+            sentences.append(word)
+        sentences.append("\n")
+    return sentences
 
 
 def recalculate_markov_obj(markov_obj):
@@ -114,7 +99,39 @@ def update_markov_obj(markov_obj, text):
     recalculate_markov_obj(markov_obj)
 
 
+def select_next_word(markov_obj, current_word_key):
+    next_words = markov_obj[current_word_key]["next_words"]
+
+    words = []
+    probabilities = []
+    for next_word_key in next_words:
+        next_word_data = next_words[next_word_key]
+        words.append(next_word_key)
+        probabilities.append(next_word_data["probability"])
+
+    return np.random.choice(words, p=probabilities)
+
+
+def random_walk(markov_obj):
+    all_keys = list(markov_obj)
+
+    current_word_key = all_keys[np.random.randint(len(all_keys))]
+    current_word = markov_obj[current_word_key]
+    random_sentence = []
+
+    newline_encounter = False
+    while not newline_encounter:
+        random_sentence.append(current_word["value"])
+        current_word_key = select_next_word(markov_obj, current_word_key)
+        current_word = markov_obj[current_word_key]
+        if current_word["value"] == "\n":
+            newline_encounter = True
+
+    return " ".join(random_sentence)
+
+
 if __name__ == "__main__":
-    markov = create_markov_obj()
-    update_markov_obj(markov, SAMPLE_SENTENCES)
-    print(json.dumps(markov, indent=2))
+    markov = {}
+    with open(abspath("./data/messages.txt"), "r", encoding=ENCODING) as messages_file:
+        update_markov_obj(markov, messages_file.read())
+    print(random_walk(markov))
