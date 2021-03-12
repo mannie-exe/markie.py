@@ -6,13 +6,13 @@ import json
 
 
 INPUTS = [
-    "export_dokidokiliterature.json",
-    "export_ediea2ndera.json",
-    "export_hellotavern.json",
-    "export_badlands.json",
+    "./data/export_dokidokiliterature.json",
+    "./data/export_ediea2ndera.json",
+    "./data/export_hellotavern.json",
+    "./data/export_badlands.json",
 ]
 
-OUTPUT = "messages.txt"
+OUTPUT = "./data/messages.txt"
 
 URL_PATTERN = re.compile(
     "((https?):((//)|(\\\\))+([\w\d:#@%/;$()~_?\+-=\\\.&](#!)?)*)", flags=re.I
