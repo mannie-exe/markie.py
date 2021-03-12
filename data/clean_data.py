@@ -28,12 +28,16 @@ def check_file(path):
 
 
 def clean_message(accum, message):
-    if not message["author"]["isBot"]:
-        message = message["content"]
-        message = re.sub(URL_PATTERN, "", message).strip()
-        message = "" if re.match(BOT_TRIGGER_PATTERN, message) else message
-        if message:
-            accum.append(message)
+    bot = message["author"]["isBot"]
+    old_markov = int(message["author"]["id"]) == 569277281046888488
+    if bot and not old_markov:
+        return accum
+
+    message = message["content"]
+    message = re.sub(URL_PATTERN, "", message).strip()
+    message = "" if re.match(BOT_TRIGGER_PATTERN, message) else message
+    if message:
+        accum.append(message)
     return accum
 
 
