@@ -1,137 +1,59 @@
+from sys import exit as sys_exit
+from random import randrange
 from os.path import abspath
-from hashlib import md5
-import numpy as np
-
-ENCODING = "utf-8"
-
-
-def word_to_hash(word):
-    hasher = md5()
-    hasher.update(bytes(word, ENCODING))
-    return hasher.hexdigest()
+import re
+import asyncio
+import discord
+import markov
 
 
-def create_word_sequence(text):
-    sentences = []
-    for sentence in text.split("\n"):
-        for word in sentence.split(" "):
-            sentences.append(word)
-        sentences.append("\n")
-    return sentences
+m_instance = markov.init()
 
 
-def recalculate_markov_obj(markov_obj):
-    for word_key in markov_obj:
-        word_data = markov_obj[word_key]
-        if word_data["value"] == "\n":
-            continue
-
-        # get all counts of next words
-        # possible after current
-        total_next_count = 0
-        for next_word_key in word_data["next_words"]:
-            next_word_data = word_data["next_words"][next_word_key]
-            total_next_count += next_word_data["count"]
-
-        # calculate probabilities based
-        # on total word occurrences
-        for next_word_key in word_data["next_words"]:
-            next_word_data = word_data["next_words"][next_word_key]
-            next_word_data["probability"] = next_word_data["count"] / total_next_count
+crit = lambda n: randrange(1, n + 1) == n
 
 
-def update_markov_obj(markov_obj, text):
-    word_sequence = create_word_sequence(text)
+async def init_bot(bot_token):
+    TRIGGER_PATTERN = re.compile("^(oh (hi|hey|hello)|yo) mark", flags=re.I)
+    client = discord.Client()
 
-    # ensure newline terminations
-    # are handled before filling
-    if not word_to_hash("\n") in markov_obj:
-        markov_obj[word_to_hash("\n")] = {
-            "value": "\n",
-            "next_words": None,
-        }
+    @client.event
+    async def on_ready():
+        print("markie.py is online 🤓 (as: {0.user})\n-----".format(client))
 
-    for idx, word in enumerate(word_sequence):
-        if word == "\n":
-            continue
+    @client.event
+    async def on_message(message):
+        if message.author == client.user:
+            return
 
-        next_word = word_sequence[idx + 1]
-        word_key = word_to_hash(word)
-        next_word_key = word_to_hash(next_word)
+        if re.match(TRIGGER_PATTERN, message.content):
+            await message.channel.trigger_typing()
+            response = markov.random_walk(m_instance)
+            print(
+                "@{0.author} called Markov in #{0.channel} on '{0.guild.name}'\n(Guild ID: {0.guild.id})\nResponding with this generated message:\n{1}\n-----".format(
+                    message, response
+                )
+            )
+            await message.channel.send(response)
 
-        # check if key exists
-        if not word_key in markov_obj:
-            # next word definitely doesn't
-            # exist, initialize markov_obj[word_key]
-            # and fill next word with count 0
-            # and (RECALCULATE)
-            markov_obj[word_key] = {
-                "value": word,
-                "next_words": {
-                    next_word_key: {
-                        "value": next_word,
-                        "count": 1,
-                        "probability": None,
-                    }
-                },
-            }
-            continue
-
-        word_data = markov_obj[word_key]
-        # key exists, check if next word
-        # has been encountered before
-        if not next_word_key in word_data["next_words"]:
-            # this word has never preceded
-            # the next word before. initialize
-            # it to 1 (RECALCULATE)
-            word_data["next_words"][next_word_key] = {
-                "value": next_word,
-                "count": 1,
-                "probability": None,
-            }
-            continue
-
-        # next word's key exists, update
-        # word encounters (RECALCULATE)
-        next_word_data = word_data["next_words"][next_word_key]
-        next_word_data["count"] = next_word_data["count"] + 1
-
-    recalculate_markov_obj(markov_obj)
-
-
-def select_next_word(markov_obj, current_word_key):
-    next_words = markov_obj[current_word_key]["next_words"]
-
-    words = []
-    probabilities = []
-    for next_word_key in next_words:
-        next_word_data = next_words[next_word_key]
-        words.append(next_word_key)
-        probabilities.append(next_word_data["probability"])
-
-    return np.random.choice(words, p=probabilities)
-
-
-def random_walk(markov_obj):
-    all_keys = list(markov_obj)
-
-    current_word_key = all_keys[np.random.randint(len(all_keys))]
-    current_word = markov_obj[current_word_key]
-    random_sentence = []
-
-    newline_encounter = False
-    while not newline_encounter:
-        random_sentence.append(current_word["value"])
-        current_word_key = select_next_word(markov_obj, current_word_key)
-        current_word = markov_obj[current_word_key]
-        if current_word["value"] == "\n":
-            newline_encounter = True
-
-    return " ".join(random_sentence)
+    print("Connecting markiepy with token in './BOT_TOKEN'...")
+    try:
+        await client.login(bot_token)
+        await client.connect()
+    except:
+        print(
+            "Wellp, that's not good. Failed to connect bot to Discord with token: {}".format(
+                bot_token
+            )
+        )
 
 
 if __name__ == "__main__":
-    markov = {}
-    with open(abspath("./data/messages.txt"), "r", encoding=ENCODING) as messages_file:
-        update_markov_obj(markov, messages_file.read())
-    print(random_walk(markov))
+    TOKEN = abspath("./BOT_TOKEN")
+    with open(TOKEN) as token_file:
+        TOKEN = token_file.read().strip()
+        if not TOKEN:
+            sys_exit(
+                "You did it again... place Discord bot token in new file './BOT_TOKEN' before starting."
+            )
+    asyncio.run(init_bot(TOKEN))
